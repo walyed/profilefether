@@ -1,6 +1,12 @@
 """
 Instagram Profile Picture Proxy — Railway Deployment
-Fetches Instagram profile pictures using this server's IP.
+Fetches Instagram profile pictures via a Bright Data residential proxy
+to bypass Instagram's datacenter IP blocking.
+
+Environment variables:
+  PROXY_SECRET       — API auth secret (default: instacontest-proxy-2026)
+  RESIDENTIAL_PROXY  — Residential proxy URL, e.g.:
+    http://user:pass@brd.superproxy.io:33335
 """
 import os
 import requests
@@ -12,16 +18,21 @@ app = Flask(__name__)
 CORS(app)
 
 API_SECRET = os.environ.get("PROXY_SECRET", "instacontest-proxy-2026")
+RESIDENTIAL_PROXY = os.environ.get("RESIDENTIAL_PROXY", "")
 
 
 def fetch_profile_pic(username: str) -> dict:
     url = f"https://www.instagram.com/{username}/"
     headers = {"User-Agent": "Mozilla/5.0"}
 
+    proxies = None
+    if RESIDENTIAL_PROXY:
+        proxies = {"http": RESIDENTIAL_PROXY, "https": RESIDENTIAL_PROXY}
+
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = requests.get(url, headers=headers, timeout=20, proxies=proxies, verify=not bool(proxies))
     except Exception as e:
-        return {"error": str(e), "image": None, "status": 0, "loginWall": False}
+        return {"error": str(e), "image": None, "status": 0, "loginWall": False, "proxy": bool(proxies)}
 
     login_wall = "/accounts/login" in resp.text
 
